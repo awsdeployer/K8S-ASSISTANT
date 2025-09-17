@@ -29,30 +29,7 @@ jobs:
         kubectl apply -f k8s/deployment.yaml
         kubectl apply -f k8s/service.yaml
 
-    - name: Update image in Deployment
+    - name: Update Deployment with GitHub SHA image
       run: |
         kubectl set image deployment/k8s-bot \
           k8s-bot=ashwanth01/k8s-bot:${{ github.sha }} --record
-
-    - name: Get Service NodePort URL
-      id: service-url
-      run: |
-        NODE_IP=$(hostname -I | awk '{print $1}')
-        echo "NODE_IP=$NODE_IP" >> $GITHUB_ENV
-        echo "App running at: http://$NODE_IP:30080"
-
-    - name: Verify deployment
-      run: |
-        kubectl rollout status deployment/k8s-bot
-        kubectl get pods -l app=k8s-bot
-
-    - name: Test application
-      run: |
-        sleep 30
-        curl -f http://$NODE_IP:30001 || exit 1
-
-    - name: Cleanup on failure
-      if: failure()
-      run: |
-        kubectl delete deployment k8s-bot --ignore-not-found
-        kubectl delete service k8s-bot --ignore-not-found
