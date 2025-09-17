@@ -1,9 +1,10 @@
-name: Build & Deploy to K8s
+name: kubester
 
 on:
-  workflow_dispatch:   
+  workflow_dispatch:
+
 jobs:
-  build-and-deploy:
+  kubester-build-and-deploy:
     runs-on: self-hosted
 
     steps:
@@ -22,13 +23,18 @@ jobs:
         context: .
         push: true
         tags: |
-          ashwanth01/ashapp-backend:latest
-          ashwanth01/ashapp-backend:${{ github.sha }}
+          ashwanth01/k8s-bot:latest
+          ashwanth01/k8s-bot:${{ github.sha }}
 
     - name: Apply Kubernetes manifests
       run: |
         kubectl apply -f k8s/deployment.yaml
         kubectl apply -f k8s/service.yaml
+
+    - name: Update image in Deployment
+      run: |
+        kubectl set image deployment/k8s-bot \
+          k8s-bot=ashwanth01/k8s-bot:${{ github.sha }} --record
 
     - name: Get Service NodePort URL
       id: service-url
@@ -39,8 +45,8 @@ jobs:
 
     - name: Verify deployment
       run: |
-        kubectl rollout status deployment/ashapp-backend
-        kubectl get pods -l app=ashapp-backend
+        kubectl rollout status deployment/k8s-bot
+        kubectl get pods -l app=k8s-bot
 
     - name: Test application
       run: |
@@ -50,5 +56,5 @@ jobs:
     - name: Cleanup on failure
       if: failure()
       run: |
-        kubectl delete deployment ashapp-backend --ignore-not-found
-        kubectl delete service ashapp-backend --ignore-not-found
+        kubectl delete deployment k8s-bot --ignore-not-found
+        kubectl delete service k8s-bot --ignore-not-found
