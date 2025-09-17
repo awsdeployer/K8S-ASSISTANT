@@ -1,11 +1,11 @@
 name: Build & Deploy K8s Bot
 
 on:
-  workflow_dispatch:   # ✅ Runs only when "Run workflow" button is pressed
+  workflow_dispatch:   
 
 jobs:
   build-and-push:
-    runs-on: self-hosted   # ✅ Self-hosted runner only
+    runs-on: self-hosted   
     steps:
       - name: Checkout repo
         uses: actions/checkout@v4
@@ -32,12 +32,18 @@ jobs:
       - name: Checkout repo
         uses: actions/checkout@v4
 
+      - name: Generate Flask Secret Key
+        id: flaskkey
+        run: |
+          KEY=$(python3 -c "import secrets; print(secrets.token_hex(32))")
+          echo "FLASK_SECRET_KEY=$KEY" >> $GITHUB_ENV
+
       - name: Create/Update Kubernetes Secrets
         run: |
           kubectl create secret generic k8s-bot-secrets \
             --from-literal=aws-access-key-id="${{ secrets.AWS_ACCESS_KEY_ID }}" \
             --from-literal=aws-secret-access-key="${{ secrets.AWS_SECRET_ACCESS_KEY }}" \
-            --from-literal=flask-secret-key="${{ secrets.FLASK_SECRET_KEY }}" \
+            --from-literal=flask-secret-key="${{ env.FLASK_SECRET_KEY }}" \
             --dry-run=client -o yaml | kubectl apply -f -
 
       - name: Deploy manifests
@@ -45,4 +51,3 @@ jobs:
           # Patch deployment with latest image SHA
           kubectl set image deployment/k8s-bot k8s-bot=${{ env.IMAGE }} --record
           kubectl apply -f k8s/
-
