@@ -16,7 +16,7 @@ spec:
     spec:
       containers:
         - name: k8s-bot
-          image: your-dockerhub-username/k8s-bot:latest   # 👈 gets patched by CI
+          image: ashwanth01/k8s-bot:latest   # 👈 gets patched by CI
           imagePullPolicy: Always
           ports:
             - containerPort: 5000
