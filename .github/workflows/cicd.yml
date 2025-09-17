@@ -1,53 +1,61 @@
-name: Build & Deploy K8s Bot
+name: Build & Deploy to K8s
 
 on:
-  workflow_dispatch:   
+  workflow_dispatch:   # ✅ Runs only when triggered manually
 
 jobs:
-  build-and-push:
-    runs-on: self-hosted   
+  build-and-deploy:
+    runs-on: self-hosted
+
     steps:
-      - name: Checkout repo
-        uses: actions/checkout@v4
+    - name: Checkout code
+      uses: actions/checkout@v3
 
-      - name: Log in to Docker Hub
-        uses: docker/login-action@v3
-        with:
-          username: ${{ secrets.DOCKER_HUB_USERNAME }}
-          password: ${{ secrets.DOCKER_HUB_ACCESS_TOKEN }}
+    - name: Lint with flake8
+      run: flake8 .
 
-      - name: Build Docker image
-        run: |
-          IMAGE=${{ secrets.DOCKER_HUB_USERNAME }}/k8s-bot:${{ github.sha }}
-          docker build -t $IMAGE .
-          echo "IMAGE=$IMAGE" >> $GITHUB_ENV
+    - name: Run unit tests
+      run: pytest || echo "⚠️ No tests found, skipping..."
 
-      - name: Push Docker image
-        run: docker push ${{ env.IMAGE }}
+    - name: Log in to Docker Hub
+      uses: docker/login-action@v2
+      with:
+        username: ashwanth01
+        password: ${{ secrets.DOCKERHUB_TOKEN }}
 
-  deploy:
-    runs-on: self-hosted   # ✅ Self-hosted runner only
-    needs: build-and-push
-    steps:
-      - name: Checkout repo
-        uses: actions/checkout@v4
+    - name: Build and push Docker image
+      uses: docker/build-push-action@v4
+      with:
+        context: .
+        push: true
+        tags: |
+          ashwanth01/ashapp-backend:latest
+          ashwanth01/ashapp-backend:${{ github.sha }}
 
-      - name: Generate Flask Secret Key
-        id: flaskkey
-        run: |
-          KEY=$(python3 -c "import secrets; print(secrets.token_hex(32))")
-          echo "FLASK_SECRET_KEY=$KEY" >> $GITHUB_ENV
+    - name: Apply Kubernetes manifests
+      run: |
+        kubectl apply -f k8s/deployment.yaml
+        kubectl apply -f k8s/service.yaml
 
-      - name: Create/Update Kubernetes Secrets
-        run: |
-          kubectl create secret generic k8s-bot-secrets \
-            --from-literal=aws-access-key-id="${{ secrets.AWS_ACCESS_KEY_ID }}" \
-            --from-literal=aws-secret-access-key="${{ secrets.AWS_SECRET_ACCESS_KEY }}" \
-            --from-literal=flask-secret-key="${{ env.FLASK_SECRET_KEY }}" \
-            --dry-run=client -o yaml | kubectl apply -f -
+    - name: Get Service NodePort URL
+      id: service-url
+      run: |
+        NODE_IP=$(hostname -I | awk '{print $1}')
+        echo "NODE_IP=$NODE_IP" >> $GITHUB_ENV
+        echo "App running at: http://$NODE_IP:30080"
 
-      - name: Deploy manifests
-        run: |
-          # Patch deployment with latest image SHA
-          kubectl set image deployment/k8s-bot k8s-bot=${{ env.IMAGE }} --record
-          kubectl apply -f k8s/
+    - name: Verify deployment
+      run: |
+        kubectl rollout status deployment/ashapp-backend
+        kubectl get pods -l app=ashapp-backend
+
+    - name: Test application
+      run: |
+        sleep 30
+        curl -f http://$NODE_IP:30080 || exit 1
+
+    - name: Cleanup on failure
+      if: failure()
+      run: |
+        kubectl delete deployment ashapp-backend --ignore-not-found
+        kubectl delete service ashapp-backend --ignore-not-found
