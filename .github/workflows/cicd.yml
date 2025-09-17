@@ -1,0 +1,48 @@
+name: Build & Deploy K8s Bot
+
+on:
+  workflow_dispatch:   # ✅ Runs only when "Run workflow" button is pressed
+
+jobs:
+  build-and-push:
+    runs-on: self-hosted   # ✅ Self-hosted runner only
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v4
+
+      - name: Log in to Docker Hub
+        uses: docker/login-action@v3
+        with:
+          username: ${{ secrets.DOCKER_HUB_USERNAME }}
+          password: ${{ secrets.DOCKER_HUB_ACCESS_TOKEN }}
+
+      - name: Build Docker image
+        run: |
+          IMAGE=${{ secrets.DOCKER_HUB_USERNAME }}/k8s-bot:${{ github.sha }}
+          docker build -t $IMAGE .
+          echo "IMAGE=$IMAGE" >> $GITHUB_ENV
+
+      - name: Push Docker image
+        run: docker push ${{ env.IMAGE }}
+
+  deploy:
+    runs-on: self-hosted   # ✅ Self-hosted runner only
+    needs: build-and-push
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v4
+
+      - name: Create/Update Kubernetes Secrets
+        run: |
+          kubectl create secret generic k8s-bot-secrets \
+            --from-literal=aws-access-key-id="${{ secrets.AWS_ACCESS_KEY_ID }}" \
+            --from-literal=aws-secret-access-key="${{ secrets.AWS_SECRET_ACCESS_KEY }}" \
+            --from-literal=flask-secret-key="${{ secrets.FLASK_SECRET_KEY }}" \
+            --dry-run=client -o yaml | kubectl apply -f -
+
+      - name: Deploy manifests
+        run: |
+          # Patch deployment with latest image SHA
+          kubectl set image deployment/k8s-bot k8s-bot=${{ env.IMAGE }} --record
+          kubectl apply -f k8s/
+
