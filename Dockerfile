@@ -5,9 +5,6 @@ FROM python:3.12-slim
 ENV PYTHONDONTWRITEBYTECODE=1 \
     PYTHONUNBUFFERED=1
 
-# Create non-root user
-RUN adduser --disabled-password --gecos '' appuser
-
 # Set workdir
 WORKDIR /app
 
@@ -20,9 +17,6 @@ COPY backend/ .
 
 # Copy frontend (static files)
 COPY frontend/ ../frontend/
-
-# Change to non-root user
-USER appuser
 
 # Expose Flask port
 EXPOSE 5000
