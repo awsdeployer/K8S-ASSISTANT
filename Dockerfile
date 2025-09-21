@@ -22,4 +22,5 @@ COPY frontend/ ../frontend/
 EXPOSE 5000
 
 # Start with Gunicorn (production-ready)
-CMD ["gunicorn", "--bind", "0.0.0.0:5000", "--worker-class", "gevent", "app:app"]
+ENTRYPOINT ["gunicorn", "-b", "0.0.0.0:5000", "app:app"]
+
