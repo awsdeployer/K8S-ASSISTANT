@@ -43,6 +43,8 @@ jobs:
         kubectl set image deployment/k8s-bot \
           k8s-bot=ashwanth01/k8s-bot:${{ github.sha }} --record
 
-    - name: Show running port
-      run: echo "✅ Application is running on port 30001"
+    - name: Show running port and public IP
+      run: |
+        PUBLIC_IP=$(curl -s ifconfig.me)
+        echo "✅ Application is running on http://$PUBLIC_IP:30000"
 
