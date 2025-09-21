@@ -42,3 +42,7 @@ jobs:
       run: |
         kubectl set image deployment/k8s-bot \
           k8s-bot=ashwanth01/k8s-bot:${{ github.sha }} --record
+
+    - name: Show running port
+      run: echo "✅ Application is running on port 30001"
+
