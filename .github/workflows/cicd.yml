@@ -18,6 +18,15 @@ jobs:
     - name: Build Docker image
       run: |
         docker build -t ashwanth01/k8s-bot:latest -t ashwanth01/k8s-bot:${{ github.sha }} .
+        
+    - name: Create k8s-bot-secrets secret
+      run: |
+        kubectl delete secret k8s-bot-secrets --ignore-not-found
+        kubectl create secret generic k8s-bot-secrets \
+          --from-literal=aws-access-key-id="${{ secrets.AWS_ACCESS_KEY_ID }}" \
+          --from-literal=aws-secret-access-key="${{ secrets.AWS_SECRET_ACCESS_KEY }}" \
+          --from-literal=flask-secret-key="secrets.FLASK_KEY" \
+          --from-literal=aws-region="${{ secrets.AWS_REGION }}"
 
     - name: Push Docker image
       run: |
