@@ -55,11 +55,11 @@ def get_kubectl_from_llm(question: str) -> str:
 
     command = result["content"][0]["text"].strip()
 
-    # ✅ Ensure only kubectl commands are returned
+
     if not command.startswith("kubectl"):
         raise ValueError(f"Invalid command generated: {command}")
 
-    # ✅ Add --no-headers when it's safe
+
     if "--no-headers" not in command and "-o" in command:
         command += " --no-headers"
 
